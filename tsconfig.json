@@ -8,6 +8,7 @@
     ".output",
     "tools/oxlint/anti-slop",
     "oxlint.config.ts",
+    "supabase/functions",
     ".codebuddy",
     ".agents",
     ".claude"

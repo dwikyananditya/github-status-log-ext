@@ -1,5 +1,3 @@
-type Json = { [k: string]: Json } | Json[] | string | number | boolean | null;
-
 type StatusEntry = {
   at: number;
   actor?: string;
@@ -22,6 +20,8 @@ function isStr(v: unknown): v is string {
 function isObj(v: unknown): v is { [k: string]: Json } {
   return v != null && v.constructor === Object;
 }
+
+type Json = { [k: string]: Json } | Json[] | string | number | boolean | null;
 
 function isStatusEntry(v: unknown): v is StatusEntry {
   return isObj(v) && isNum(v.at) && isStr(v.optionId);
@@ -99,6 +99,29 @@ function actorLogin(): string | null {
   return document.querySelector<HTMLMetaElement>('meta[name="user-login"]')?.content ?? null;
 }
 
+function syncToSupabase(entry: StatusEntry) {
+  const url: string | undefined = import.meta.env.VITE_SUPABASE_URL;
+  const token: string | undefined = import.meta.env.VITE_TEAM_TOKEN;
+
+  if (!url || !token) return;
+
+  void browser.runtime
+    .sendMessage({
+      type: 'gh-status-sync',
+      entry: {
+        at: new Date(entry.at).toISOString(),
+        actor: entry.actor,
+        repo: entry.repo,
+        issue: entry.issue,
+        project: entry.project,
+        assignees: entry.assignees,
+        option_id: entry.optionId,
+        option_name: entry.optionName,
+      },
+    })
+    .catch(() => {});
+}
+
 export default defineContentScript({
   matches: ['https://github.com/*'],
 
@@ -120,7 +143,7 @@ export default defineContentScript({
         ...domStatus(),
       };
 
-      // if (!entry.actor || !entry.assignees.includes(entry.actor)) return;
+      syncToSupabase(entry);
 
       browser.storage.local
         .get({ log: [] })

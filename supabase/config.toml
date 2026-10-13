@@ -1,0 +1,6 @@
+# Supabase CLI config — https://supabase.com/docs/guides/local-development/cli/config
+project_id = 'gh-status-log'
+
+[functions.ingest]
+enabled = true
+verify_jwt = false

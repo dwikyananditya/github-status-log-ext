@@ -63,14 +63,9 @@ export default function App() {
         <ul className="divide-y">
           {entries.map((e) => (
             <li key={`${e.at}-${e.optionId}`} className="px-3 py-2 flex items-center justify-between gap-3">
-              <div>
-                <span className="badge badge-secondary shrink-0" title={e.project}>
-                  {e.optionName ?? e.optionId}
-                </span>
-                {e.actor && (
-                  <div className="text-xs text-muted-foreground mt-0.5">@{e.actor}</div>
-                )}
-              </div>
+              <span className="badge badge-secondary shrink-0" title={e.project}>
+                {e.optionName ?? e.optionId}
+              </span>
               <span className="text-xs text-muted-foreground text-right truncate">
                 {where(e)} · {new Date(e.at).toLocaleString()}
               </span>

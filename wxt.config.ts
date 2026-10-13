@@ -10,6 +10,7 @@ export default defineConfig({
     name: 'GH Status Log',
     description: 'Mencatat perubahan status project issue GitHub per anggota team',
     permissions: ['storage'],
+    host_permissions: ['https://*.supabase.co/*'],
     browser_specific_settings: {
       gecko: {
         id: 'gh-status-log@datfooldive',

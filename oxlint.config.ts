@@ -15,6 +15,7 @@ const config = defineConfig({
     ".windsurf/**",
     ".codebuddy/**",
     "tools/oxlint/anti-slop/**",
+    "supabase/**",
   ],
   jsPlugins: [
     { name: "anti-slop", specifier: "./tools/oxlint/anti-slop/index.ts" },
