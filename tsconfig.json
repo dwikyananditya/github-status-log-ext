@@ -1,0 +1,15 @@
+{
+  "extends": "./.wxt/tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx"
+  },
+  "exclude": [
+    "**/node_modules",
+    ".output",
+    "tools/oxlint/anti-slop",
+    "oxlint.config.ts",
+    ".codebuddy",
+    ".agents",
+    ".claude"
+  ]
+}
