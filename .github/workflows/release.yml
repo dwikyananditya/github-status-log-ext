@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Check version change
+        id: version
+        run: |
+          VERSION="v$(node -p "require('./package.json').version")"
+          if git ls-remote --tags origin "refs/tags/$VERSION" | grep -q "$VERSION"; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No new version: $VERSION already released"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          fi
+
+      - run: npm ci
+        if: steps.version.outputs.changed == 'true'
+
+      - name: Build and zip
+        if: steps.version.outputs.changed == 'true'
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_TEAM_TOKEN: ${{ secrets.VITE_TEAM_TOKEN }}
+        run: |
+          npm run zip
+          npm run zip:firefox
+
+      - name: Create release
+        if: steps.version.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          gh release create "${{ steps.version.outputs.version }}" \
+            ".output/gh-status-log-$VERSION-chrome.zip" \
+            ".output/gh-status-log-$VERSION-firefox.zip" \
+            ".output/gh-status-log-$VERSION-sources.zip" \
+            --title "${{ steps.version.outputs.version }}" \
+            --generate-notes
