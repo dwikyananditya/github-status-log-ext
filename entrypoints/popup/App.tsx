@@ -60,7 +60,7 @@ export default function App() {
           Belum ada perubahan tercatat. Ganti status di project, lalu buka lagi.
         </p>
       ) : (
-        <ul className="divide-y">
+        <ul className="divide-y max-h-[560px] overflow-y-auto">
           {entries.map((e) => (
             <li key={`${e.at}-${e.optionId}`} className="px-3 py-2 flex items-center justify-between gap-3">
               <span className="badge badge-secondary shrink-0" title={e.project}>

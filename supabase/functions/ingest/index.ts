@@ -5,6 +5,7 @@ type Payload = {
   actor?: unknown;
   repo?: unknown;
   issue?: unknown;
+  url?: unknown;
   project?: unknown;
   assignees?: unknown;
   option_id?: unknown;
@@ -15,7 +16,7 @@ function str(v: unknown): v is string {
   return v != null && v.constructor === String;
 }
 
-const VALID_KEYS = ['at', 'actor', 'repo', 'issue', 'project', 'assignees', 'option_id', 'option_name'];
+const VALID_KEYS = ['at', 'actor', 'repo', 'issue', 'url', 'project', 'assignees', 'option_id', 'option_name'];
 
 const CORS = {
   'access-control-allow-origin': '*',

@@ -4,6 +4,7 @@ create table if not exists public.status_log (
   actor text,
   repo text,
   issue text,
+  url text,
   project text,
   assignees text[] not null default '{}',
   option_id text not null,
