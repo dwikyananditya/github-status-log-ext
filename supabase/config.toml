@@ -4,3 +4,7 @@ project_id = 'gh-status-log'
 [functions.ingest]
 enabled = true
 verify_jwt = false
+
+[functions.get]
+enabled = true
+verify_jwt = false
