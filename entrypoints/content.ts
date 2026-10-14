@@ -3,6 +3,7 @@ type StatusEntry = {
   actor?: string;
   repo?: string;
   issue?: string;
+  url?: string;
   project?: string;
   assignees: string[];
   optionId: string;
@@ -99,6 +100,65 @@ function actorLogin(): string | null {
   return document.querySelector<HTMLMetaElement>('meta[name="user-login"]')?.content ?? null;
 }
 
+type BoardRow = { repo?: string; issue?: string; status: string; assignees: string[] };
+
+function boardRows(): Map<string, BoardRow> {
+  const cols = [...document.querySelectorAll('[role="columnheader"]')].map((h) => {
+    const full = h.textContent?.trim() ?? '';
+
+    if (!full.endsWith(' column options')) return full;
+
+    const body = full.slice(0, -' column options'.length);
+
+    return body.slice(0, body.length / 2);
+  });
+
+  const statusIdx = cols.indexOf('Status');
+
+  const assigneeIdx = cols.indexOf('Assignees');
+  const rows = new Map<string, BoardRow>();
+
+  for (const row of document.querySelectorAll('[role="row"]')) {
+    const link = row.querySelector<HTMLAnchorElement>('a[href*="/issues/"], a[href*="/pulls/"]');
+
+    if (!link) continue;
+
+    const m = new URL(link.href).pathname.match(/^\/([^/]+)\/([^/]+)\/(?:issues|pulls)\/(\d+)/);
+    const cells = [...row.querySelectorAll(':scope > [role="gridcell"], :scope > [role="rowheader"]')];
+
+    const offset = Math.max(
+      cells.findIndex((c) => c.getAttribute('role') === 'rowheader'),
+      0,
+    );
+
+    const cellAt = (i: number) => (i >= 0 ? cells[i + offset] : undefined);
+
+    rows.set(link.href, {
+      repo: m ? `${m[1]}/${m[2]}` : undefined,
+      issue: m ? m[3] : undefined,
+      status: statusIdx >= 0 ? (cellAt(statusIdx)?.textContent?.trim() ?? '') : '',
+      assignees:
+        assigneeIdx >= 0
+          ? [...(cellAt(assigneeIdx)?.querySelectorAll('[class*="TextCell"]') ?? [])].flatMap((el) => {
+              const t = el.textContent?.trim();
+
+              return t ? [t] : [];
+            })
+          : [],
+    });
+  }
+
+  return rows;
+}
+
+function boardChangedRow(before: Map<string, BoardRow>): BoardRow | undefined {
+  for (const [key, row] of boardRows()) {
+    if (before.get(key)?.status !== row.status) return row;
+  }
+
+  return undefined;
+}
+
 function syncToSupabase(entry: StatusEntry) {
   const url: string | undefined = import.meta.env.VITE_SUPABASE_URL;
   const token: string | undefined = import.meta.env.VITE_TEAM_TOKEN;
@@ -113,6 +173,7 @@ function syncToSupabase(entry: StatusEntry) {
         actor: entry.actor,
         repo: entry.repo,
         issue: entry.issue,
+        url: entry.url,
         project: entry.project,
         assignees: entry.assignees,
         option_id: entry.optionId,
@@ -135,26 +196,95 @@ export default defineContentScript({
 
       if (!browser.runtime?.id) return;
 
+      const trig = data.entry;
+
       const entry: StatusEntry = {
-        ...data.entry,
+        at: trig.at,
+        optionId: trig.optionId,
         actor: actorLogin() ?? undefined,
+        repo: trig.repo,
+        issue: trig.issue,
+        project: trig.project,
+        optionName: trig.optionName,
         assignees: domAssignees(),
-        ...repoIssueFromUrl(),
-        ...domStatus(),
+        url: location.href,
       };
 
-      syncToSupabase(entry);
+      const finish = () => {
+        syncToSupabase(entry);
 
-      browser.storage.local
-        .get({ log: [] })
-        .then(({ log }) => {
-          const entries = isStatusLog(log) ? log : [];
+        browser.storage.local
+          .get({ log: [] })
+          .then(({ log }) => {
+            const entries = isStatusLog(log) ? log : [];
 
-          entries.unshift(entry);
+            entries.unshift(entry);
 
-          return browser.storage.local.set({ log: entries.slice(0, 1000) });
-        })
-        .catch(() => {});
+            return browser.storage.local.set({ log: entries.slice(0, 1000) });
+          })
+          .catch(() => {});
+      };
+
+      if (/\/orgs\/[^/]+\/projects\/\d+/.test(location.pathname)) {
+        entry.project ??= document.title.split(' · ')[1];
+
+        const before = boardRows();
+
+        const attempt = (left: number): void => {
+          let row = boardChangedRow(before);
+
+          if (!row && isNum(trig.issueNumber)) {
+            for (const r of boardRows().values()) {
+              if (r.issue === String(trig.issueNumber)) {
+                row = r;
+
+                break;
+              }
+            }
+          }
+
+          if (row) {
+            entry.repo = row.repo;
+            entry.issue = row.issue;
+            entry.optionName = row.status || entry.optionName;
+            entry.assignees =
+              row.assignees.length > 0
+                ? row.assignees
+                : Array.isArray(trig.assignees) && trig.assignees.every(isStr) && trig.assignees.length > 0
+                  ? trig.assignees
+                  : entry.assignees;
+          } else if (left > 0) {
+            window.setTimeout(() => attempt(left - 1), 2000);
+
+            return;
+          } else {
+            const pane = new URL(location.href).searchParams.get('issue');
+
+            if (pane) {
+              const [org, repo, num] = pane.split('|');
+
+              entry.repo ??= `${org}/${repo}`;
+              entry.issue ??= num;
+            }
+
+            entry.optionName ??= domStatus().optionName;
+          }
+
+          finish();
+        };
+
+        window.setTimeout(() => attempt(2), 1500);
+      } else {
+        const fromUrl = repoIssueFromUrl();
+        const dom = domStatus();
+
+        entry.repo ??= fromUrl.repo;
+        entry.issue ??= fromUrl.issue;
+        entry.project ??= dom.project;
+        entry.optionName ??= dom.optionName;
+
+        finish();
+      }
     });
   },
 });
