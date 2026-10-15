@@ -96,6 +96,8 @@ function domStatus(): DomStatus {
   return { optionName: null };
 }
 
+const optionNames: Record<string, string> = {};
+
 function actorLogin(): string | null {
   return document.querySelector<HTMLMetaElement>('meta[name="user-login"]')?.content ?? null;
 }
@@ -249,6 +251,7 @@ export default defineContentScript({
             entry.issue = row.issue;
             entry.url = row.url;
             entry.optionName = row.status || entry.optionName;
+            if (entry.optionId && entry.optionName) optionNames[entry.optionId] = entry.optionName;
             entry.assignees =
               row.assignees.length > 0
                 ? row.assignees
@@ -260,6 +263,8 @@ export default defineContentScript({
 
             return;
           } else {
+            entry.issue ??= isNum(trig.issueNumber) ? String(trig.issueNumber) : undefined;
+
             const pane = new URL(location.href).searchParams.get('issue');
 
             if (pane) {
@@ -270,13 +275,14 @@ export default defineContentScript({
               entry.url = `https://github.com/${org}/${repo}/issues/${num}`;
             }
 
-            entry.optionName ??= domStatus().optionName;
+            entry.optionName ??=
+              (entry.optionId ? optionNames[entry.optionId] : undefined) ?? domStatus().optionName;
           }
 
           finish();
         };
 
-        window.setTimeout(() => attempt(2), 1500);
+        window.setTimeout(() => attempt(5), 1000);
       } else {
         const fromUrl = repoIssueFromUrl();
         const dom = domStatus();
