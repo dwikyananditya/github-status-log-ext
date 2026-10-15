@@ -100,7 +100,7 @@ function actorLogin(): string | null {
   return document.querySelector<HTMLMetaElement>('meta[name="user-login"]')?.content ?? null;
 }
 
-type BoardRow = { repo?: string; issue?: string; status: string; assignees: string[] };
+type BoardRow = { repo?: string; issue?: string; url: string; status: string; assignees: string[] };
 
 function boardRows(): Map<string, BoardRow> {
   const cols = [...document.querySelectorAll('[role="columnheader"]')].map((h) => {
@@ -136,6 +136,7 @@ function boardRows(): Map<string, BoardRow> {
     rows.set(link.href, {
       repo: m ? `${m[1]}/${m[2]}` : undefined,
       issue: m ? m[3] : undefined,
+      url: link.href,
       status: statusIdx >= 0 ? (cellAt(statusIdx)?.textContent?.trim() ?? '') : '',
       assignees:
         assigneeIdx >= 0
@@ -246,6 +247,7 @@ export default defineContentScript({
           if (row) {
             entry.repo = row.repo;
             entry.issue = row.issue;
+            entry.url = row.url;
             entry.optionName = row.status || entry.optionName;
             entry.assignees =
               row.assignees.length > 0
@@ -265,6 +267,7 @@ export default defineContentScript({
 
               entry.repo ??= `${org}/${repo}`;
               entry.issue ??= num;
+              entry.url = `https://github.com/${org}/${repo}/issues/${num}`;
             }
 
             entry.optionName ??= domStatus().optionName;
